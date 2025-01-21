@@ -1,52 +1,65 @@
-version: 2.1
+version: 2.1  # CircleCI configuration version
 
+# Define reusable commands
+commands:
+  install_dependencies:
+    description: "Install Python dependencies"
+    steps:
+      - run:
+          name: Install Python Dependencies
+          command: |
+            python -m venv venv
+            source venv/bin/activate
+            pip install -r requirements.txt
+
+  run_tests:
+    description: "Run tests with pytest"
+    steps:
+      - run:
+          name: Run Tests
+          command: |
+            source venv/bin/activate
+            pytest --maxfail=1 --disable-warnings -q  # Run tests with specific flags
+
+# Define jobs (collection of steps)
 jobs:
-  build_and_push:
+  build:
     docker:
-      - image: cimg/node:20.3.1
+      - image: circleci/python:3.8  # Use Python Docker image
     steps:
-      - checkout
-      - setup_remote_docker
-      - run:
-          name: Lets build &&&&& push image
-          command: |
-            version="build-$CIRCLE_BUILD_NUM"
-            echo $version
-            docker build -t omkarthorbole15701/todo-app:$version .
-            echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
-            docker push omkarthorbole15701/todo-app:$version
+      - checkout  # Step to check out the code from the Git repo
+      - install_dependencies  # Custom command to install dependencies
+      - run_tests  # Custom command to run tests
 
-  Update_manifest:
+  # Optional: Add a deployment job (for example, deploying to a server)
+  deploy:
     docker:
-      - image: cimg/base:2023.06
+      - image: circleci/python:3.8
     steps:
       - checkout
-      - setup_remote_docker
+      - install_dependencies
       - run:
-          name: Updating Manifest file 
+          name: Deploy Application
           command: |
-            TAG=$CIRCLE_BUILD_NUM
-            ((TAG--))
-            git clone https://github.com/Omkar-Thorbole/kube_manifest.git
-            git config --global user.email "omkarthorbole3962@gmail.com"
-            git config --global user.name "omkarthorbole"
-            pwd
-            cd kube_manifest
-            pwd
-            echo $TAG
-            sed -i "s/build-.*/build-$TAG/g" manifest/deployment.yaml
-            cat manifest/deployment.yaml
-            git add .
-            git commit -m "new build with imgTag build-$TAG"
-            git config credential.helper 'cache --timeout=120'
-            git push -q https://$GITHUB_PERSONAL_TOKEN@github.com/Omkar-Thorbole/kube_manifest.git main 
+            echo "Deploying the app to production server..."
+            # Insert your deploy commands here (e.g., SSH, API calls)
+      - run:
+          name: Notify success
+          command: |
+            echo "Deployment Successful!"
+
+# Define workflows (determine job execution order)
 workflows:
-  GitOpsflow:
+  version: 2
+  build_and_deploy:
     jobs:
-      - build_and_push
-      - Update_manifest:
+      - build
+      - deploy:
           requires:
-            - build_and_push
-      
+            - build  # Ensure the deploy job runs after the build job
 
+# This configuration file will automatically run on every push or PR to the 'main' branch.
+# Jobs will:
+# 1. Run the 'build' job (checkout, install dependencies, run tests)
+# 2. Deploy the app if the build is successful
 
